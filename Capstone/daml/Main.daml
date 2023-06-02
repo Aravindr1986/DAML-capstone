@@ -3,12 +3,30 @@ module Main where
 import Daml.Script
 
 type BankAccountKey =(Party,Text)
+data BankDetails= BankDetails
+  with
+    bankName : Text
+    address : Text
+  
+    -- Custom implementation of Show for BankDetails
+instance Show BankDetails where
+      show bd =
+        "Bank Name: " <> bd.bankName <>
+        "\nAddress: " <> bd.address
+
+    -- Custom implementation of Eq for BankDetails
+instance Eq BankDetails where
+      (==) bd1 bd2 =
+        bd1.bankName == bd2.bankName &&
+       bd1.address == bd2.address
+
 
 template Account
   with
     accountNumber : Text
     owner : Party
     balance : Int
+    bank:BankDetails
   where
     signatory owner
     observer owner
@@ -21,12 +39,13 @@ template Account
       with
         recipient : Party
         amount : Int
+        bankdet : BankDetails
       controller owner
       do
         assertMsg "Amount must be greater than 0" (amount > 0) 
         assertMsg "Insufficient balance" (balance >= amount) 
         let updatedBalance = balance - amount
-        create Account with accountNumber = accountNumber, owner = recipient, balance = updatedBalance
+        create Account with accountNumber = accountNumber, owner = recipient, balance = updatedBalance,bank=bankdet
 
     nonconsuming choice GetBalance : Int
       controller owner
@@ -36,10 +55,25 @@ template Account
     nonconsuming choice Deposit : ContractId Account
       with
         amount : Int
+
       controller owner
       do
         assertMsg "Amount must be greater than 0" (amount > 0) 
         let updatedBalance = balance + amount
-        create Account with accountNumber = accountNumber, owner = owner, balance = updatedBalance
-  
+        create Account with accountNumber = accountNumber, owner = owner, balance = updatedBalance,bank=bank
+
+type CustomerId =(Party,Text)
+
+template Customer
+  with
+    customer : Party
+    name : Text
+    address : Text
+  where
+    signatory customer 
+    
+    key (customer,name) : CustomerId
+    maintainer key._1
+
+
 
