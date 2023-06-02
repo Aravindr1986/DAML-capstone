@@ -1,0 +1,45 @@
+module Main where
+
+import Daml.Script
+
+type BankAccountKey =(Party,Text)
+
+template Account
+  with
+    accountNumber : Text
+    owner : Party
+    balance : Int
+  where
+    signatory owner
+    observer owner
+   
+
+    key (owner,accountNumber) : BankAccountKey
+    maintainer key._1
+
+    choice Transfer : ContractId Account
+      with
+        recipient : Party
+        amount : Int
+      controller owner
+      do
+        assertMsg "Amount must be greater than 0" (amount > 0) 
+        assertMsg "Insufficient balance" (balance >= amount) 
+        let updatedBalance = balance - amount
+        create Account with accountNumber = accountNumber, owner = recipient, balance = updatedBalance
+
+    nonconsuming choice GetBalance : Int
+      controller owner
+      do
+        return balance
+
+    nonconsuming choice Deposit : ContractId Account
+      with
+        amount : Int
+      controller owner
+      do
+        assertMsg "Amount must be greater than 0" (amount > 0) 
+        let updatedBalance = balance + amount
+        create Account with accountNumber = accountNumber, owner = owner, balance = updatedBalance
+  
+
