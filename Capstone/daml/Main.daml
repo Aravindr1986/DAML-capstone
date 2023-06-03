@@ -1,4 +1,5 @@
 module Main where
+--https://github.com/digital-asset/certification-damlfundamentals-capstone
 
 import Daml.Script
 
@@ -40,12 +41,13 @@ template Account
         recipient : Party
         amount : Int
         bankdet : BankDetails
+        accno: Text
       controller owner
       do
         assertMsg "Amount must be greater than 0" (amount > 0) 
         assertMsg "Insufficient balance" (balance >= amount) 
         let updatedBalance = balance - amount
-        create Account with accountNumber = accountNumber, owner = recipient, balance = updatedBalance,bank=bankdet
+        create Account with accountNumber = accno, owner = recipient, balance = updatedBalance,bank=bankdet
 
     nonconsuming choice GetBalance : Int
       controller owner
@@ -61,6 +63,13 @@ template Account
         assertMsg "Amount must be greater than 0" (amount > 0) 
         let updatedBalance = balance + amount
         create Account with accountNumber = accountNumber, owner = owner, balance = updatedBalance,bank=bank
+    
+    nonconsuming choice GetCustomer : (ContractId Account,Account)
+     with
+       accno : Text
+      controller owner
+     do
+       fetchByKey @Account (owner,accno)
 
 type CustomerId =(Party,Text)
 
@@ -75,5 +84,39 @@ template Customer
     key (customer,name) : CustomerId
     maintainer key._1
 
+    choice CreateCustomer : ContractId Customer
+        with
+          customer : Party
+          cname:Text
+          address:Text
+        controller customer
+        do
+          create Customer with customer=customer,  name = cname, address = address
+test = script do
+  -- Positive cases
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
 
+  -- Create a customer for Alice
+  customerAlice <- submit alice do
+    exerciseCmd (CreateCustomer alice "Alice" "Address Alice")
 
+  -- -- Create an account for Alice
+  -- accountAlice <- submit alice do
+  --   exerciseCmd (contractId (AccountTransfer alice "AccountAlice" 100 BankDetails "RecipientAlice"))
+
+  -- -- Retrieve Alice's account balance
+  -- balanceAlice <- query alice do
+  --   getAccountBalance accountAlice
+
+  -- -- Negative cases
+  -- charlie <- allocateParty "Charlie"
+
+  -- -- Try to create a customer with an unauthorized party (Charlie)
+  -- createCustomerResult <- submit charlie do
+  --   exerciseCmd (contractId (CreateCustomer charlie "Charlie" "Address Charlie"))
+
+  -- -- Try to transfer an amount higher than the account balance
+  -- transferResult <- submit alice do
+  --   exerciseCmd (contractId (AccountTransfer alice "AccountAlice" 200 BankDetails "Recipient"))
+  -- return()
