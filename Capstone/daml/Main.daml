@@ -36,7 +36,7 @@ template Account
     key (owner,accountNumber) : BankAccountKey
     maintainer key._1
 
-    choice Transfer : ContractId Account
+    choice Transfer : (ContractId Account,ContractId Account)
       with
         recipient : Party
         amount : Int
@@ -47,8 +47,9 @@ template Account
         assertMsg "Amount must be greater than 0" (amount > 0) 
         assertMsg "Insufficient balance" (balance >= amount) 
         let updatedBalance = balance - amount
-        create Account with accountNumber = accno, owner = recipient, balance = amount,bank=bankdet
-       -- create Account with accountNumber=this.accountNumber,owner=owner,balance=updatedBalance,bank=bankdet
+        rAccno<-create Account with accountNumber = accno, owner = recipient, balance = amount,bank=bankdet
+        oAccno<-create Account with accountNumber=this.accountNumber,owner=owner,balance=updatedBalance,bank=bankdet
+        return (rAccno,oAccno)
     nonconsuming choice GetBalance : Int
       controller owner
       do
@@ -123,11 +124,18 @@ testScript = do
   assert $ balance == 135
 
   -- Transfer funds
- -- bobCid<-submitMulti[alice,bob][] do
-  --  exerciseCmd alicenewCid Transfer with accno="002",recipient=bob,amount=60,bankdet=bankdetails
+  (bobCid,alicenewCid)<-submitMulti[alice,bob][] do
+    exerciseCmd alicenewCid Transfer with accno="002",recipient=bob,amount=60,bankdet=bankdetails
   --Some c <- queryContractId alice aliceCid
   --negative cases
+  submitMultiMustFail[alice,bob][] do
+    exerciseCmd alicenewCid Transfer with accno="002",recipient=bob,amount=600,bankdet=bankdetails
 
+  submitMultiMustFail[alice,bob][] do
+    exerciseCmd alicenewCid Transfer with accno="002",recipient=bob,amount=0,bankdet=bankdetails
+
+  submitMultiMustFail[alice,bob][] do
+    exerciseCmd alicenewCid Transfer with accno="002",recipient=bob,amount=0,bankdet=bankdetails
 
 
   return()
