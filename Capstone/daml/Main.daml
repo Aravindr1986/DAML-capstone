@@ -137,5 +137,6 @@ testScript = do
   submitMultiMustFail[alice,bob][] do
     exerciseCmd alicenewCid Transfer with accno="002",recipient=bob,amount=0,bankdet=bankdetails
 
-
+  submitMustFail alice do
+    exerciseCmd alicenewCid Deposit with amount=0
   return()
