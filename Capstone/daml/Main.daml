@@ -42,19 +42,19 @@ template Account
         amount : Int
         bankdet : BankDetails
         accno: Text
-      controller owner
+      controller owner,recipient
       do
         assertMsg "Amount must be greater than 0" (amount > 0) 
         assertMsg "Insufficient balance" (balance >= amount) 
         let updatedBalance = balance - amount
-        create Account with accountNumber = accno, owner = recipient, balance = updatedBalance,bank=bankdet
-
+        create Account with accountNumber = accno, owner = recipient, balance = amount,bank=bankdet
+       -- create Account with accountNumber=this.accountNumber,owner=owner,balance=updatedBalance,bank=bankdet
     nonconsuming choice GetBalance : Int
       controller owner
       do
         return balance
 
-    nonconsuming choice Deposit : ContractId Account
+    choice Deposit : ContractId Account
       with
         amount : Int
 
@@ -92,31 +92,42 @@ template Customer
         controller customer
         do
           create Customer with customer=customer,  name = cname, address = address
-test = script do
-  -- Positive cases
+
+testScript : Script ()
+testScript = do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
+  let  bankdetails = BankDetails{
 
-  -- Create a customer for Alice
-  customerAlice <- submit alice do
-    exerciseCmd (CreateCustomer alice "Alice" "Address Alice")
+    bankName="abcco",
+    address="abc street"
+  }
 
-  -- -- Create an account for Alice
-  -- accountAlice <- submit alice do
-  --   exerciseCmd (contractId (AccountTransfer alice "AccountAlice" 100 BankDetails "RecipientAlice"))
+  --positive cases
+  --create an account
+  aliceCid<- submit alice do
+    createCmd Account with accountNumber="001",owner=alice,balance=60,bank=bankdetails
+  Some c <- queryContractId alice aliceCid
+  assert $ c.accountNumber == "001"
 
-  -- -- Retrieve Alice's account balance
-  -- balanceAlice <- query alice do
-  --   getAccountBalance accountAlice
+  --reterive balance
+  balance <- submit alice do
+    exerciseCmd aliceCid GetBalance
+  assert $ balance == 60
+  
+  --update the balance
+  alicenewCid<-submit alice do
+    exerciseCmd aliceCid Deposit with amount=75
+  balance <- submit alice do
+    exerciseCmd alicenewCid GetBalance
+  assert $ balance == 135
 
-  -- -- Negative cases
-  -- charlie <- allocateParty "Charlie"
+  -- Transfer funds
+ -- bobCid<-submitMulti[alice,bob][] do
+  --  exerciseCmd alicenewCid Transfer with accno="002",recipient=bob,amount=60,bankdet=bankdetails
+  --Some c <- queryContractId alice aliceCid
+  --negative cases
 
-  -- -- Try to create a customer with an unauthorized party (Charlie)
-  -- createCustomerResult <- submit charlie do
-  --   exerciseCmd (contractId (CreateCustomer charlie "Charlie" "Address Charlie"))
 
-  -- -- Try to transfer an amount higher than the account balance
-  -- transferResult <- submit alice do
-  --   exerciseCmd (contractId (AccountTransfer alice "AccountAlice" 200 BankDetails "Recipient"))
-  -- return()
+
+  return()
