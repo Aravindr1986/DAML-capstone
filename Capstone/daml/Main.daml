@@ -211,7 +211,7 @@ itemTestScripts = do
   assert $ currentItem.itemId=="HWCVI2023"
  -- assert $ aliceAcc.balance==50
   itemnewCid<- submitMulti [testaccParties.bob,alice][] do
-     exerciseCmd itemCid  TransferOwnership with customer=alice,owner=testaccParties.bob,customerBalance=Some 60,offer=Some 6 
+     exerciseCmd itemCid  TransferOwnership with customer=alice,owner=testaccParties.bob,customerBalance=Some balance,offer=Some 6 
   Some currentItem <- queryContractId alice itemnewCid
   assert $ currentItem.owner==alice
 
