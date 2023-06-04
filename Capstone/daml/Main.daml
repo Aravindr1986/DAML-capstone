@@ -63,7 +63,7 @@ template Account
       do
         assertMsg "Amount must be greater than 0" (amount > 0) 
         let updatedBalance = balance + amount
-        create Account with accountNumber = accountNumber, owner = owner, balance = updatedBalance,bank=bank
+        create this with balance = updatedBalance
     
     nonconsuming choice GetCustomer : (ContractId Account,Account)
      with
@@ -93,50 +93,96 @@ template Customer
         controller customer
         do
           create Customer with customer=customer,  name = cname, address = address
+-- Modulirized testing
 
-testScript : Script ()
-testScript = do
+initializeBankDetails : Script BankDetails
+initializeBankDetails = do
+  return BankDetails
+    { bankName = "abcco"
+    , address = "abc street"
+    }
+
+data TestAccParties=TestAccParties with
+  alice:Party
+  bob:Party
+
+setupParties:Script TestAccParties
+setupParties =do
   alice <- allocateParty "Alice"
   bob <- allocateParty "Bob"
-  let  bankdetails = BankDetails{
-
-    bankName="abcco",
-    address="abc street"
-  }
-
-  --positive cases
-  --create an account
-  aliceCid<- submit alice do
-    createCmd Account with accountNumber="001",owner=alice,balance=60,bank=bankdetails
-  Some c <- queryContractId alice aliceCid
+  return $TestAccParties with
+    alice=alice
+    bob=bob
+--positive case  
+--can create an account
+canCreateAccount:Script(ContractId Account,Party)
+canCreateAccount=do
+  testaccParties<-setupParties
+ -- alice <- allocateParty "Alice"
+  bankdetails <-initializeBankDetails
+  aliceCid<- submit testaccParties.alice do
+    createCmd Account with accountNumber="001",owner=testaccParties.alice,balance=60,bank=bankdetails
+  Some c <- queryContractId testaccParties.alice aliceCid
   assert $ c.accountNumber == "001"
+  return (aliceCid,testaccParties.alice)
 
-  --reterive balance
+--positive case 
+--can read balance
+canReteriveBalance:Script()
+canReteriveBalance=do
+  testaccParties<-setupParties
+ -- alice <- allocateParty "Alice"
+  bankdetails <-initializeBankDetails
+  (aliceCid,alice)<- canCreateAccount
   balance <- submit alice do
     exerciseCmd aliceCid GetBalance
   assert $ balance == 60
-  
-  --update the balance
+
+--positive case
+--can deposit money
+canDeposit:Script(ContractId Account,Party)
+canDeposit=do
+  testaccParties<-setupParties
+ -- alice <- allocateParty "Alice"
+  bankdetails <-initializeBankDetails
+  (aliceCid,alice)<- canCreateAccount 
   alicenewCid<-submit alice do
     exerciseCmd aliceCid Deposit with amount=75
   balance <- submit alice do
     exerciseCmd alicenewCid GetBalance
   assert $ balance == 135
+  return (alicenewCid,alice) 
 
-  -- Transfer funds
-  (bobCid,alicenewCid)<-submitMulti[alice,bob][] do
-    exerciseCmd alicenewCid Transfer with accno="002",recipient=bob,amount=60,bankdet=bankdetails
-  --Some c <- queryContractId alice aliceCid
+--positive case
+--can Transfer money
+canTransfer:Script()
+canTransfer=do
+  testaccParties<-setupParties
+ -- alice <- allocateParty "Alice"
+  bankdetails <-initializeBankDetails
+  (aliceCid,alice)<-canDeposit
+
+  (bobCid,alicenewCid)<-submitMulti[alice,testaccParties.bob][] do
+    exerciseCmd aliceCid Transfer with accno="002",recipient=testaccParties.bob,amount=60,bankdet=bankdetails
+  return()
+
+negativeTestScripts : Script ()
+negativeTestScripts = do
+  testaccParties<-setupParties
+ -- alice <- allocateParty "Alice"
+  bankdetails <-initializeBankDetails
+  (aliceCid,alice)<-canDeposit
+
   --negative cases
-  submitMultiMustFail[alice,bob][] do
-    exerciseCmd alicenewCid Transfer with accno="002",recipient=bob,amount=600,bankdet=bankdetails
+  submitMultiMustFail[alice,testaccParties.bob][] do
+    exerciseCmd aliceCid Transfer with accno="002",recipient=testaccParties.bob,amount=600,bankdet=bankdetails
 
-  submitMultiMustFail[alice,bob][] do
-    exerciseCmd alicenewCid Transfer with accno="002",recipient=bob,amount=0,bankdet=bankdetails
+  submitMultiMustFail[alice,testaccParties.bob][] do
+    exerciseCmd aliceCid Transfer with accno="002",recipient=testaccParties.bob,amount=0,bankdet=bankdetails
 
-  submitMultiMustFail[alice,bob][] do
-    exerciseCmd alicenewCid Transfer with accno="002",recipient=bob,amount=0,bankdet=bankdetails
+  submitMultiMustFail[alice,testaccParties.bob][] do
+    exerciseCmd aliceCid Transfer with accno="002",recipient=testaccParties.bob,amount=0,bankdet=bankdetails
 
   submitMustFail alice do
-    exerciseCmd alicenewCid Deposit with amount=0
+    exerciseCmd aliceCid Deposit with amount=0
   return()
