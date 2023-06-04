@@ -72,27 +72,37 @@ template Account
      do
        fetchByKey @Account (owner,accno)
 
-type CustomerId =(Party,Text)
+type ItemIdentifier = (Party,Text)
 
-template Customer
+template Item
   with
-    customer : Party
+    owner : Party
+    buyer:Party
     name : Text
-    address : Text
+    description : Text
+    itemId: Text
+    price:Optional Int
   where
-    signatory customer 
+    signatory owner 
+    observer buyer
     
-    key (customer,name) : CustomerId
+    key (owner,itemId) : ItemIdentifier
     maintainer key._1
 
-    choice CreateCustomer : ContractId Customer
+    choice TransferOwnership :  ContractId Item
         with
           customer : Party
-          cname:Text
-          address:Text
-        controller customer
+          owner:Party
+          customerBalance: Optional Int
+          offer:Optional Int
+        controller owner,customer
         do
-          create Customer with customer=customer,  name = cname, address = address
+          assertMsg "Amount must be greater than 0" ( customerBalance>price)
+          if (offer == None) then create this with owner=customer
+          else create this with owner=customer,price=offer
+                   
+       --   create Customer with customer=customer,  name = cname, address = address
+
 -- Modulirized testing
 
 initializeBankDetails : Script BankDetails
@@ -185,4 +195,24 @@ negativeTestScripts = do
 
   submitMustFail alice do
     exerciseCmd aliceCid Deposit with amount=0
+  return()
+itemTestScripts : Script ()
+itemTestScripts = do
+  testaccParties<-setupParties
+  bankdetails <-initializeBankDetails
+  (aliceCid,alice)<-canDeposit
+  Some c <- queryContractId alice aliceCid
+  balance <- submit alice do
+    exerciseCmd aliceCid GetBalance
+  assert $ c.accountNumber == "001"
+  itemCid<- submit testaccParties.bob do
+    createCmd Item with name="hotheels",owner=testaccParties.bob,buyer=alice,description="hond civic 2023 sti",itemId="HWCVI2023",price=Some 5
+  Some currentItem <- queryContractId testaccParties.bob itemCid
+  assert $ currentItem.itemId=="HWCVI2023"
+ -- assert $ aliceAcc.balance==50
+  itemnewCid<- submitMulti [testaccParties.bob,alice][] do
+     exerciseCmd itemCid  TransferOwnership with customer=alice,owner=testaccParties.bob,customerBalance=Some 60,offer=Some 6 
+  Some currentItem <- queryContractId alice itemnewCid
+  assert $ currentItem.owner==alice
+
   return()
