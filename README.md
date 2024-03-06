@@ -25,5 +25,7 @@ init-script: Main:setup
 ### IV. Compiling & Testing
 To compile and test, run the pre-written script in the `Test.daml` under /daml OR run:
 ```
-$ daml start  
+$ daml start
+
+
 ```
