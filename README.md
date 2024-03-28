@@ -1,5 +1,5 @@
 # Asset transfer Application
-The Asset transfer application is build as part of certification for DAML and deals with transfer of item ownership and transfer of money.
+The Asset transfer application is build as part of certification for DAML and deals with transfer of item ownership and transfer of money. The was done as part of DAML fundamentals certificaiton capstone project.
 
 ### I. Overview 
 This project was created by using the `empty-skeleton` template. 
